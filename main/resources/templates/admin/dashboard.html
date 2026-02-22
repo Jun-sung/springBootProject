@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout">
+<head>
+    <meta charset="UTF-8">
+    <title>管理者ダッシュボード</title> <!-- 관리자 대시보드 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <style>
+        :root { --navy-main: #1A237E; }
+        .sidebar { background: #f8f9fa; min-height: 100vh; border-right: 1px solid #dee2e6; }
+        .nav-link { color: #333; }
+        .nav-link.active { color: var(--navy-main); font-weight: bold; }
+        .table-v-align { vertical-align: middle; }
+        .accordion-button:not(.collapsed) { background-color: #e7f1ff; color: var(--navy-main); }
+        .question-preview {
+		    display: block;
+		    overflow: hidden;
+		    white-space: nowrap;
+		    text-overflow: ellipsis;
+		}
+		.question-container .list-group-item {
+		    border: none;
+		    border-bottom: 1px solid #e9ecef;
+		    padding-left: 0;
+		    padding-right: 0;
+		}
+		.text-truncate {
+		    overflow: hidden;
+		    white-space: nowrap;
+		    text-overflow: ellipsis;
+		}
+    </style>
+</head>
+<body>
+
+<div class="container-fluid">
+    <div class="row">
+        <!-- 사이드바 네비게이션 -->
+        <nav class="col-md-2 d-none d-md-block sidebar py-4">
+            <h4 class="text-center fw-bold mb-4" style="color: var(--navy-main);">管理者パネル</h4> <!-- 관리자 패널 -->
+            <div class="nav flex-column nav-pills px-3" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                <button class="nav-link active mb-2 text-start" id="user-tab" data-bs-toggle="pill" data-bs-target="#user-mgmt" type="button">
+                    <i class="bi bi-people-fill me-2"></i>会員管理 <!-- 회원 관리 -->
+                </button>
+                <button class="nav-link mb-2 text-start" id="qna-tab" data-bs-toggle="pill" data-bs-target="#qna-mgmt" type="button">
+                    <i class="bi bi-chat-dots-fill me-2"></i>Q&A管理 <!-- Q&A 관리 -->
+                </button>
+            </div>
+        </nav>
+
+        <!-- 메인 콘텐츠 영역 -->
+        <main class="col-md-10 ms-sm-auto px-md-4 py-4">
+            <div class="tab-content" id="v-pills-tabContent">
+                
+                <!-- 1. 회원 관리 섹션 -->
+                <div class="tab-pane fade show active" id="user-mgmt" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3>会員管理</h3> <!-- 회원 관리 -->
+                            <a href="/" class="btn btn-primary btn-sm">
+						        <i class="bi bi-house-door-fill me-1"></i> メイン画面
+						    </a>
+                    </div>
+
+                    <div class="card shadow-sm">
+                        <div class="card-body p-0">
+                            <table class="table table-hover table-v-align mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <!-- 전체 선택 체크박스 -->
+                                        <th style="width: 50px;" class="text-center border-0"><input type="checkbox" id="selectAll"></th>
+                                        <th class="border-0 text-center">メールアドレス</th> <!-- 이메일 주소 -->
+                                        <th class="border-0 text-center">質問数</th> <!-- 질문수 -->
+                                        <th class="border-0 text-center">加入日</th> <!-- 게시글 수 -->
+                                        <th class="border-0 text-center">操作</th> <!-- 조작/관리 -->
+                                    </tr>
+                                </thead>
+                                
+                                <tbody id="userTableBody">
+                                </tbody>
+                                
+                            </table>
+                            
+                            
+                        </div>
+                        <div class="card-footer bg-white py-3">
+                            <button class="btn btn-danger btn-sm" onclick="deleteCheckedUsers()">選択した会員を退会させる</button> <!-- 선택한 회원 탈퇴 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Q&A 관리 섹션 -->
+                <div class="tab-pane fade" id="qna-mgmt" role="tabpanel">
+                   <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h3 class="mb-4">全Q&A管理</h3> <!-- 전체 Q&A 관리 -->
+                     <a href="/" class="btn btn-primary btn-sm">
+						        <i class="bi bi-house-door-fill me-1"></i> メイン画面
+						    </a>
+					</div>	    
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>番号</th> <!-- 번호 -->
+                                            <th>カテゴリー</th> <!-- 카테고리 -->
+                                            <th>タイトル</th> <!-- 제목 -->
+                                            <th>作成者</th> <!-- 작성자 -->
+                                            <th>日付</th> <!-- 날짜 -->
+                                            <th>削除</th> <!-- 삭제 -->
+                                        </tr>
+                                    </thead>
+                                   <tbody id="qnaTableBody">
+                                   
+                                   </tbody>
+                                </table>
+                                <div class="d-flex justify-content-center mt-3">
+								  <nav>
+								    <ul class="pagination mb-0" id="qnaPagination"></ul>
+								  </nav>
+								</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+	window.onload = () => {
+	    loadAllUser();
+	    loadQnaList();
+	};
+	
+	document.getElementById('qna-tab').addEventListener('shown.bs.tab', () => {
+		  loadQnaList(1);
+		});
+
+	async function loadAllUser(){
+		try {
+            const response = await fetch('/user/list');
+            const data = await response.json();
+            console.log(data);
+            displayUsers(data);
+        } catch (error) {
+            console.error('조회 실패:', error);
+
+        }
+		
+	}
+	
+	function displayUsers(users) {
+	    const tbody = document.getElementById('userTableBody');
+	    tbody.innerHTML = '';
+
+	    users.forEach(user => {
+	        const row = `
+	            <tr class="user-row">
+	                <td class="text-center">
+	                    <input type="checkbox" class="user-check" value="${user.id}">
+	                </td>
+	                <td class="text-center">${user.email}</td>
+	                <td class="text-center">
+	                    <span class="badge bg-secondary rounded-pill text-center">
+	                        ${user.questionCount}
+	                    </span>
+	                </td>
+	                <td class="text-center">${user.createdDate}</td>
+	                <td class="text-center">
+	                <button class="btn btn-sm btn-light border"
+	                    type="button"
+	                    data-bs-toggle="collapse"
+	                    data-bs-target="#detail-${user.id}"
+	                    onclick="loadUserQuestions(${user.id})">
+		                活動履歴 <i class="bi bi-chevron-down"></i>
+		            </button>
+	                    <button class="btn btn-sm btn-danger" 
+	                        onclick="deleteOneUser(${user.id})">
+	                        退会
+	                    </button>
+	                </td>
+	            </tr>
+
+	            <tr class="collapse border-0" id="detail-${user.id}">
+	            <td colspan="5" class="bg-light px-4 py-3">
+	                <div class="mb-2 fw-semibold text-secondary small">
+	                    投稿一覧
+	                </div>
+	                <div id="detail-content-${user.id}" class="question-container">
+	                    <div class="text-muted small">読み込み中...</div>
+	                </div>
+	            </td>
+	        </tr>
+	        `;
+
+	        tbody.insertAdjacentHTML('beforeend', row);
+	    });
+	}
+	
+	// 회원별 작성 질문 확인
+	async function loadUserQuestions(userId) {
+
+	    const container = document.getElementById(`detail-content-${userId}`);
+
+	    // 이미 로딩했으면 다시 요청 안함
+	    if (container.dataset.loaded === "true") {
+	        return;
+	    }
+
+	    try {
+	        const response = await fetch(`/user/${userId}/questions`);
+	        const questions = await response.json();
+
+	        let html = '';
+
+	        if (questions.length === 0) {
+	            html = '<div class="text-muted small">投稿なし</div>';
+	        } else {
+	            html = '<ul class="list-group list-group-flush">';
+	            questions.forEach(q => {
+	            	html += `
+	            	    <div class="small py-1 border-bottom text-truncate">
+	            	        <strong>${q.title}</strong>
+	            	        <span class="text-muted ms-2">${q.createdAt}</span>
+	            	        <span class="text-secondary ms-2">
+	            	            ${q.content ? q.content.substring(0, 30) : ''}
+	            	        </span>
+	            	    </div>
+	            	`;
+	            });
+	            html += '</ul>';
+	        }
+
+	        container.innerHTML = html;
+	        container.dataset.loaded = "true";
+
+	    } catch (e) {
+	        container.innerHTML = '<div class="text-danger small">読み込み失敗</div>';
+	    }
+	}
+
+    // 전체 선택 체크박스 로직
+    document.getElementById('selectAll').addEventListener('change', function(e) {
+        document.querySelectorAll('.user-check').forEach(check => check.checked = e.target.checked);
+    });
+
+    
+    // 개별 회원 탈퇴 처리
+    async function deleteOneUser(userId) {
+
+    if (!confirm('本当にこの会員を退会させますか？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/user/${userId}/delete`, {
+            method: 'delete'
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP error: ' + response.status);
+        }
+
+        const result = await response.json();
+
+        if (result === true) {
+            alert('退会処理が完了しました。');
+            
+            // 화면에서 해당 행 제거
+            document.querySelector(`input[value="${userId}"]`)
+                    .closest('tr')
+                    .remove();
+
+            // collapse 영역도 제거
+            const detailRow = document.getElementById(`detail-${userId}`);
+            if (detailRow) detailRow.remove();
+
+        } else {
+            alert('退会処理に失敗しました。');
+        }
+
+		    } catch (error) {
+		        console.error('削除失敗:', error);
+		        alert('サーバーエラーが発生しました。');
+		    }
+		}
+
+    // 선택된 회원들 일괄 탈퇴 처리
+async function deleteCheckedUsers() {
+
+    const checkedIds = Array.from(
+        document.querySelectorAll('.user-check:checked')
+    ).map(cb => Number(cb.value));
+
+    if (checkedIds.length === 0) {
+        alert('会員を選択してください。');
+        return;
+    }
+
+    if (!confirm(checkedIds.length + '名の会員を退会させますか？')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/user/deleteSelectedUsers', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(checkedIds)
+        });
+
+        if (!response.ok) {
+            throw new Error('HTTP error: ' + response.status);
+        }
+
+        const result = await response.json();
+
+        if (result === true) {
+            alert('削除完了');
+
+            // 화면에서 제거
+            checkedIds.forEach(userId => {
+                const checkbox = document.querySelector(`input[value="${userId}"]`);
+                if (checkbox) checkbox.closest('tr').remove();
+
+                const detailRow = document.getElementById(`detail-${userId}`);
+                if (detailRow) detailRow.remove();
+            });
+
+		        } else {
+		            alert('削除に失敗しました。');
+		        }
+		
+		    } catch (error) {
+		        console.error(error);
+		        alert('サーバーエラー');
+		    }
+		}
+
+		
+		/******************************
+		Q&A관리
+		******************************/
+		let qnaCurrentPage = 1;
+
+		async function loadQnaList(page = 1) {
+		  qnaCurrentPage = page;
+		  const tbody = document.getElementById('qnaTableBody');
+		  if (!tbody) return;
+
+		  tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">Loading...</td></tr>`;
+
+		  try {
+		    const res = await fetch(`/admin/qna/list?page=${page}&size=10`, {
+		      headers: { 'Accept': 'application/json' }
+		    });
+		    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+		    const data = await res.json(); // { list, totalPages, currentPage }
+		  	console.log('QNA paging:', data.currentPage, data.totalPages, data.list?.length);
+
+		    renderQnaTable(data.list);
+		    renderQnaPagination(data.currentPage, data.totalPages);
+
+		  } catch (e) {
+		    console.error(e);
+		    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">
+		      Load failed: ${e.message}
+		    </td></tr>`;
+		  }
+		}
+
+		function renderQnaPagination(currentPage, totalPages) {
+		  const ul = document.getElementById('qnaPagination');
+		  if (!ul) return;
+
+		  ul.innerHTML = '';
+		  if (!totalPages || totalPages <= 1) return;
+
+		  // 표시할 페이지 범위(예: 5개씩)
+		  const windowSize = 5;
+		  const start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+		  const end = Math.min(totalPages, start + windowSize - 1);
+
+		  // Prev
+		  ul.insertAdjacentHTML('beforeend', `
+		    <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+		      <button class="page-link" onclick="loadQnaList(${currentPage - 1})">‹</button>
+		    </li>
+		  `);
+
+		  // Page numbers
+		  for (let p = start; p <= end; p++) {
+		    ul.insertAdjacentHTML('beforeend', `
+		      <li class="page-item ${p === currentPage ? 'active' : ''}">
+		        <button class="page-link" onclick="loadQnaList(${p})">${p}</button>
+		      </li>
+		    `);
+		  }	
+
+		  // Next
+		  ul.insertAdjacentHTML('beforeend', `
+		    <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+		      <button class="page-link" onclick="loadQnaList(${currentPage + 1})">›</button>
+		    </li>
+		  `);
+		}
+		
+		function renderQnaTable(list) {
+		  const tbody = document.getElementById('qnaTableBody');
+		  tbody.innerHTML = '';
+		
+		  if (!list || list.length === 0) {
+		    tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">No data</td></tr>`;
+		    return;
+		  }
+		
+		  list.forEach(q => {
+		    const statusBadge = q.answered
+		      ? `<span class="badge bg-success">回答済み</span>`
+		      : `<span class="badge bg-secondary">未回答</span>`;
+		
+		    const createdDate = (q.createdAt || '').toString().slice(0, 10); // 날짜만
+		
+		    const row = `
+		      <tr id="qna-${q.id}">
+		        <td>${q.id}</td>
+		        <td>${statusBadge}</td>
+		        <td class="text-truncate" style="max-width:280px;">
+		          <a href="/qna/detail/${q.id}" class="text-decoration-none">${escapeHtml(q.title)}</a>
+		        </td>
+		        <td>${q.userId}</td>
+		        <td>${escapeHtml(createdDate)}</td>
+		        <td>
+		          <button class="btn btn-sm btn-outline-danger" onclick="deleteQna(${q.id})">削除</button>
+		        </td>
+		      </tr>`;
+		    tbody.insertAdjacentHTML('beforeend', row);
+		  });
+		}
+		
+		async function deleteQna(id) {
+		  if (!confirm('該当する投稿を削除しますか？')) return;
+		
+		  try {
+		    const res = await fetch(`/admin/qna/${id}`, { method: 'DELETE' });
+		    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		
+		    const ok = await res.json(); // ✅ 컨트롤러가 boolean 반환하도록 했으면
+		
+		    if (ok) {
+		      document.getElementById(`qna-${id}`)?.remove();
+		    } else {
+		      alert('削除に失敗しました。');
+		    }
+		
+		  } catch (e) {
+		    console.error(e);
+		    alert('削除失敗: ' + e.message);
+		  }
+		}
+		
+		function escapeHtml(s) {
+		  if (s == null) return '';
+		  return String(s)
+		    .replaceAll('&','&amp;')
+		    .replaceAll('<','&lt;')
+		    .replaceAll('>','&gt;')
+		    .replaceAll('"','&quot;')
+		    .replaceAll("'","&#039;");
+		}
+    
+</script>
+</body>
+</html>

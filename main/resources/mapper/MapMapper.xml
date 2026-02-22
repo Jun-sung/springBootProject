@@ -1,0 +1,290 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.safehome.mapper.MapMapper">
+
+  <!-- =============================================
+       XPT001: transaction_raw upsert (external_id 기준)
+       ============================================= -->
+  <insert id="upsertTransactions">
+    INSERT INTO transaction_raw
+    (
+      external_id,
+      region_code,
+      trade_year,
+      price,
+      area,
+      building_year,
+      building_type,
+      structure,
+      address,
+      lat,
+      lng,
+      floor_plan_name_ja
+    )
+    VALUES
+    <foreach collection="rows" item="r" separator=",">
+      (
+        #{r.externalId},
+        #{r.regionCode},
+        #{r.tradeYear},
+        #{r.price},
+        #{r.area},
+        #{r.buildingYear},
+        #{r.buildingType},
+        #{r.structure},
+        #{r.address},
+        #{r.lat},
+        #{r.lng},
+        #{r.floorPlanNameJa}
+      )
+    </foreach>
+    ON DUPLICATE KEY UPDATE
+      region_code       = VALUES(region_code),
+      trade_year        = VALUES(trade_year),
+      price             = VALUES(price),
+      area              = VALUES(area),
+      building_year     = VALUES(building_year),
+      building_type     = VALUES(building_type),
+      structure         = VALUES(structure),
+      address           = VALUES(address),
+      lat               = VALUES(lat),
+      lng               = VALUES(lng),
+      floor_plan_name_ja = VALUES(floor_plan_name_ja)
+  </insert>
+
+  <!-- =============================================
+       XPT002: official_land_price upsert
+       UNIQUE KEY: (region_code, survey_year, lat, lng) 가정
+       없으면 아래 CREATE TABLE 주석 참고
+       ============================================= -->
+  <insert id="upsertLandprices">
+    INSERT INTO official_land_price
+    (
+      region_code,
+      survey_year,
+      price_per_m2,
+      address,
+      lat,
+      lng
+    )
+    VALUES
+    <foreach collection="rows" item="r" separator=",">
+      (
+        #{r.regionCode},
+        #{r.surveyYear},
+        #{r.pricePerM2},
+        #{r.address},
+        #{r.lat},
+        #{r.lng}
+      )
+    </foreach>
+    ON DUPLICATE KEY UPDATE
+      price_per_m2 = VALUES(price_per_m2),
+      address      = VALUES(address)
+  </insert>
+
+  <!-- =============================================
+       Hazard
+       ============================================= -->
+
+  <!-- hazard geojson 조회 -->
+  <select id="findHazardGeoJsonList" resultType="string">
+    SELECT hz.geojson
+    FROM hazard_zone hz
+    WHERE hz.region_code = #{regionCode}
+    <if test="hazardTypes != null and hazardTypes.size() > 0">
+      AND hz.hazard_type IN
+      <foreach item="t" collection="hazardTypes" open="(" separator="," close=")">
+        #{t}
+      </foreach>
+    </if>
+    ORDER BY hz.id DESC
+  </select>
+
+  <!-- hazard upsert (region_code + hazard_type UNIQUE) -->
+  <!-- ⚠️ region_code 컬럼은 최소 VARCHAR(32) 이상 필요.
+       ALTER TABLE hazard_zone MODIFY region_code VARCHAR(64);  -->
+  <insert id="upsertHazardZone">
+    INSERT INTO hazard_zone
+    (
+      region_code,
+      hazard_type,
+      geojson
+    )
+    VALUES
+    (
+      #{regionCode},
+      #{hazardType},
+      #{geojson}
+    )
+    ON DUPLICATE KEY UPDATE
+      geojson = VALUES(geojson)
+  </insert>
+
+  <!-- =============================================
+       Transaction
+       ============================================= -->
+
+  <!-- 가장 가까운 거래 1건 조회 (지도 클릭 identify) -->
+  <select id="findNearestTransaction" resultType="com.safehome.domain.land.TransactionRaw">
+    SELECT
+      id,
+      region_code       AS regionCode,
+      trade_year        AS tradeYear,
+      price,
+      area,
+      building_year     AS buildingYear,
+      building_type     AS buildingType,
+      structure,
+      address,
+      lat,
+      lng,
+      floor_plan_name_ja AS floorPlanNameJa,
+      created_at        AS createdAt
+    FROM transaction_raw
+    WHERE lat IS NOT NULL AND lng IS NOT NULL
+      AND lat BETWEEN #{lat} - #{latDelta} AND #{lat} + #{latDelta}
+      AND lng BETWEEN #{lng} - #{lngDelta} AND #{lng} + #{lngDelta}
+      AND ST_Distance_Sphere(POINT(lng, lat), POINT(#{lng}, #{lat})) <![CDATA[<=]]> #{radiusMeters}
+    ORDER BY ST_Distance_Sphere(POINT(lng, lat), POINT(#{lng}, #{lat})) ASC
+    LIMIT 1
+  </select>
+
+  <!-- region_code 기준 거래 목록 (필터 지원) -->
+  <select id="findTransactions" resultType="com.safehome.domain.land.TransactionRaw">
+    SELECT
+      tr.id,
+      tr.region_code       AS regionCode,
+      tr.trade_year        AS tradeYear,
+      tr.price,
+      tr.area,
+      tr.building_year     AS buildingYear,
+      tr.building_type     AS buildingType,
+      tr.structure,
+      tr.address,
+      tr.lat,
+      tr.lng,
+      tr.created_at        AS createdAt,
+      tr.floor_plan_name_ja AS floorPlanNameJa
+    FROM transaction_raw tr
+    WHERE tr.region_code = #{regionCode}
+
+    <if test="yearFrom != null">
+      AND tr.trade_year <![CDATA[>=]]> #{yearFrom}
+    </if>
+    <if test="yearTo != null">
+      AND tr.trade_year <![CDATA[<=]]> #{yearTo}
+    </if>
+    <if test="minPrice != null">
+      AND tr.price <![CDATA[>=]]> #{minPrice}
+    </if>
+    <if test="maxPrice != null">
+      AND tr.price <![CDATA[<=]]> #{maxPrice}
+    </if>
+    <if test="minArea != null">
+      AND tr.area <![CDATA[>=]]> #{minArea}
+    </if>
+    <if test="maxArea != null">
+      AND tr.area <![CDATA[<=]]> #{maxArea}
+    </if>
+    <if test="buildingType != null and buildingType != '' and buildingType != 'ALL'">
+      AND tr.building_type = #{buildingType}
+    </if>
+
+    ORDER BY tr.id DESC
+    LIMIT 500
+  </select>
+
+  <!-- 현재 지도 화면(BBOX) 기준 거래 목록 -->
+  <select id="findTransactionsByBbox" resultType="com.safehome.domain.land.TransactionRaw">
+    SELECT
+      tr.id,
+      tr.region_code       AS regionCode,
+      tr.trade_year        AS tradeYear,
+      tr.price,
+      tr.area,
+      tr.building_year     AS buildingYear,
+      tr.building_type     AS buildingType,
+      tr.structure,
+      tr.address,
+      tr.lat,
+      tr.lng,
+      tr.created_at        AS createdAt,
+      tr.floor_plan_name_ja AS floorPlanNameJa
+    FROM transaction_raw tr
+    WHERE tr.lat BETWEEN #{minLat} AND #{maxLat}
+      AND tr.lng BETWEEN #{minLng} AND #{maxLng}
+
+    <if test="yearFrom != null">
+      AND tr.trade_year <![CDATA[>=]]> #{yearFrom}
+    </if>
+    <if test="yearTo != null">
+      AND tr.trade_year <![CDATA[<=]]> #{yearTo}
+    </if>
+    <if test="minPrice != null">
+      AND tr.price <![CDATA[>=]]> #{minPrice}
+    </if>
+    <if test="maxPrice != null">
+      AND tr.price <![CDATA[<=]]> #{maxPrice}
+    </if>
+    <if test="minArea != null">
+      AND tr.area <![CDATA[>=]]> #{minArea}
+    </if>
+    <if test="maxArea != null">
+      AND tr.area <![CDATA[<=]]> #{maxArea}
+    </if>
+    <if test="buildingTypes != null and buildingTypes.size() &gt; 0">
+      AND tr.building_type IN
+      <foreach collection="buildingTypes" item="t" open="(" separator="," close=")">
+        #{t}
+      </foreach>
+    </if>
+	<if test="buildingYearFrom != null">
+     	 AND tr.building_year <![CDATA[>=]]> #{buildingYearFrom}
+    </if>
+
+    ORDER BY tr.id DESC
+    LIMIT 500
+  </select>
+
+  <!-- region_code별 lat/lng 범위 조회 (region-center 계산용) -->
+  <select id="selectRegionBounds" resultType="com.safehome.mapper.MapMapper$RegionBounds">
+    SELECT
+      MIN(lat) AS minLat,
+      MAX(lat) AS maxLat,
+      MIN(lng) AS minLng,
+      MAX(lng) AS maxLng,
+      COUNT(*)  AS cnt
+    FROM transaction_raw
+    WHERE region_code = #{regionCode}
+  </select>
+
+  <!-- =============================================
+       Favorites
+       ============================================= -->
+
+  <select id="findFavoriteTransactionIds" resultType="long">
+    SELECT transaction_id
+    FROM favorite
+    WHERE user_id = #{userId}
+    ORDER BY id DESC
+  </select>
+
+  <select id="existsFavorite" resultType="int">
+    SELECT CASE WHEN EXISTS(
+      SELECT 1 FROM favorite WHERE user_id = #{userId} AND transaction_id = #{transactionId}
+    ) THEN 1 ELSE 0 END
+  </select>
+
+  <insert id="insertFavorite">
+    INSERT INTO favorite(user_id, transaction_id)
+    VALUES (#{userId}, #{transactionId})
+  </insert>
+
+  <delete id="deleteFavorite">
+    DELETE FROM favorite
+    WHERE user_id = #{userId}
+      AND transaction_id = #{transactionId}
+  </delete>
+
+</mapper>

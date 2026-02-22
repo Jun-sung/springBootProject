@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.safehome.mapper.UserMapper">
+
+	 <select id="findByEmail" parameterType="string" resultType="com.safehome.domain.User">
+        SELECT id,
+               email,
+               password,
+               role,
+               created_at
+        FROM user
+        WHERE email = #{email}
+   	 </select>
+
+	<insert id="signInUser" parameterType="com.safehome.domain.User" useGeneratedKeys="true" keyProperty="id">
+		insert into user(email, password) values(#{email},#{password})
+	</insert>
+	
+	<select id="existsByEmail" resultType="int">
+		select count(*) from user where email=#{email}
+	</select>
+	
+	<select id="selecAllUsers" resultType="com.safehome.domain.common.UserStatisticsDto" >
+		SELECT 
+		    u.id,
+		    u.email,
+			DATE_FORMAT(u.created_at, '%Y-%m-%d') AS createdDate,
+		    COUNT(DISTINCT q.id) AS question_count
+		FROM user u
+		LEFT JOIN question q ON u.id = q.user_id
+		LEFT JOIN answer a ON u.id = a.admin_id
+		GROUP BY u.id, u.created_at
+		ORDER BY u.id
+	</select>
+	
+	<select id="selectQuestionsByUserId" resultType="Question">
+	    SELECT id,
+	           title,
+	           content,
+	           DATE_FORMAT(created_at, '%Y-%m-%d') AS createdAt
+	    FROM question
+	    WHERE user_id = #{userId}
+	    ORDER BY created_at DESC
+	</select>
+	
+	<delete id="deleteUserOne" parameterType="Long">
+		delete from user where id=#{id}
+	</delete>
+	
+	<delete id="deleteSelectedUsers">
+	    DELETE FROM user
+	    WHERE id IN
+	    <foreach collection="ids"
+	             item="id"
+	             open="("
+	             separator=","
+	             close=")">
+	        #{id}
+	    </foreach>
+	</delete>
+
+</mapper>

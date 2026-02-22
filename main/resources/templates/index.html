@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
+      
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>セーフホーム - Hazard Map</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+        .hero-section {
+		    width: 100%;
+		    min-height: 100vh;
+		    background: linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.2)), 
+		                url('https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?q=80&w=2071&auto=format&fit=crop') center/cover no-repeat;
+		    display: flex;
+		    align-items: center;
+		    justify-content: center;
+		    /* nav + 텍스트를 위아래로 배치 */
+		    flex-direction: column;
+		}
+		/* nav + 텍스트 공통 폭 컨테이너 */
+		.hero-inner {
+		    max-width: 960px;   /* 원하는 폭 */
+		    width: 90%;
+		}
+		
+        /* 상단 내비 영역 */
+		.region-nav {
+		    background: rgba(255, 255, 255, 0.95);
+		    border-radius: 18px;
+		    padding: 24px 32px;         /* 여기서 세로 패딩 증가 (기존 16px 정도였다면 ↑) */
+		    min-height: 120px;          /* 박스 자체 높이 확보 */
+		    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+		    display: flex;
+		    flex-wrap: wrap;
+		    justify-content: center;
+		    align-items: center;
+		    gap: 16px;
+		    
+		}
+
+        .mega-menu-wrapper {
+            position: relative;
+        }
+
+        .region-btn {
+            min-width: 140px;
+            padding: 10px 20px;
+            border-radius: 999px;
+            border: 2px solid #1A237E;
+            background-color: #fff;
+            color: #1A237E;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            transition: all 0.18s ease-in-out;
+            white-space: nowrap;
+        }
+
+        .region-btn:hover {
+            background-color: #1A237E;
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.25);
+        }
+
+        /* 메가드롭다운 영역 */
+        .mega-menu {
+            position: absolute;
+            left: 50%;
+            top: 110%;
+            transform: translateX(-50%) translateY(8px);
+            min-width: 260px;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 16px 18px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.30);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s;
+            z-index: 20;
+        }
+
+        .mega-menu-wrapper:hover .mega-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .mega-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #1A237E;
+            margin-bottom: 6px;
+        }
+
+        .mega-subtitle {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+        }
+
+        .mega-links a {
+            display: inline-block;
+            font-size: 0.85rem;
+            margin: 3px 6px 3px 0;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: #E8EAF6;
+            color: #1A237E;
+            text-decoration: none;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+
+        .mega-links a:hover {
+            background: #1A237E;
+            color: #fff;
+        }
+
+        /* 모바일에서 드롭다운이 너무 튀어나가지 않도록 */
+        @media (max-width: 576px) {
+            .mega-menu {
+                left: 50%;
+                transform: translateX(-50%) translateY(8px);
+                width: 260px;
+            }
+        }
+
+        /* Hero 안의 설명 박스 (검색 대신 소개) */
+		.intro-box {
+		    background: rgba(255, 255, 255, 0.94);
+		    padding: 32px 36px;
+		    border-radius: 20px;
+		    /* max-width 없애고 hero-inner 폭 그대로 따라가게 */
+		    width: 100%;
+		    box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+		    margin-top: 16px;
+		}
+    </style>
+</head>
+</head>
+<body class="d-flex flex-column">
+
+    <div th:replace="~{fragments/header :: header}"></div>
+
+    <main class="flex-grow-1">
+        <section class="hero-section text-center">
+			<div class="hero-inner">
+			    <!-- 내비게이션 버튼 (검색 박스 위로) -->
+				<nav class="region-nav">
+				
+				    <!-- 홋카이도 전체 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 홋카이도 권역 -->
+				        <a th:href="@{/map(region='hokkaido')}"
+				           class="region-btn"
+				           th:text="#{nav.hokkaido}">北海道</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.hokkaido.title}">홋카이도 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.hokkaido.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <!-- 각 도시 전용 코드 -->
+				                <a th:href="@{/map(region='sapporo')}"
+				                   th:text="#{nav.hokkaido.city.sapporo}">札幌</a>
+				                <a th:href="@{/map(region='otaru')}"
+				                   th:text="#{nav.hokkaido.city.otaru}">小樽</a>
+				                <a th:href="@{/map(region='asahikawa')}"
+				                   th:text="#{nav.hokkaido.city.asahikawa}">旭川</a>
+				                <a th:href="@{/map(region='hakodate')}"
+				                   th:text="#{nav.hokkaido.city.hakodate}">函館</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 혼슈 전체 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 혼슈 권역 -->
+				        <a th:href="@{/map(region='honshu')}"
+				           class="region-btn"
+				           th:text="#{nav.honshu}">本州</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.honshu.title}">혼슈 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.honshu.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <!-- 도시별 전용 코드 -->
+				                <a th:href="@{/map(region='tokyo')}"
+				                   th:text="#{nav.honshu.city.tokyo}">東京</a>
+				                <a th:href="@{/map(region='yokohama')}"
+				                   th:text="#{nav.honshu.city.yokohama}">横浜</a>
+				                <a th:href="@{/map(region='sendai')}"
+				                   th:text="#{nav.honshu.city.sendai}">仙台</a>
+				                <a th:href="@{/map(region='niigata')}"
+				                   th:text="#{nav.honshu.city.niigata}">新潟</a>
+				                <a th:href="@{/map(region='hiroshima')}"
+				                   th:text="#{nav.honshu.city.hiroshima}">広島</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 나고야 / 중부 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 중부(나고야) 전체 -->
+				        <a th:href="@{/map(region='nagoya-area')}"
+				           class="region-btn"
+				           th:text="#{nav.nagoya}">名古屋</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.nagoya.title}">중부(나고야) 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.nagoya.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <!-- 도시별 전용 코드 -->
+				                <a th:href="@{/map(region='nagoya')}"
+				                   th:text="#{nav.nagoya.city.nagoya}">名古屋市</a>
+				                <a th:href="@{/map(region='toyota')}"
+				                   th:text="#{nav.nagoya.city.toyota}">豊田市</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 오사카 / 간사이 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 간사이 전체 -->
+				        <a th:href="@{/map(region='kansai')}"
+				           class="region-btn"
+				           th:text="#{nav.osaka}">大阪</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.osaka.title}">간사이 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.osaka.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <!-- 도시별 전용 코드 -->
+				                <a th:href="@{/map(region='osaka')}"
+				                   th:text="#{nav.osaka.city.osaka}">大阪市</a>
+				                <a th:href="@{/map(region='kyoto')}"
+				                   th:text="#{nav.osaka.city.kyoto}">京都市</a>
+				                <a th:href="@{/map(region='kobe')}"
+				                   th:text="#{nav.osaka.city.kobe}">神戸市</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 시코쿠 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 시코쿠 전체 -->
+				        <a th:href="@{/map(region='shikoku')}"
+				           class="region-btn"
+				           th:text="#{nav.shikoku}">四国</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.shikoku.title}">시코쿠 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.shikoku.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <a th:href="@{/map(region='matsuyama')}"
+				                   th:text="#{nav.shikoku.city.matsuyama}">松山</a>
+				                <a th:href="@{/map(region='takamatsu')}"
+				                   th:text="#{nav.shikoku.city.takamatsu}">高松</a>
+				                <a th:href="@{/map(region='tokushima')}"
+				                   th:text="#{nav.shikoku.city.tokushima}">徳島</a>
+				                <a th:href="@{/map(region='kochi')}"
+				                   th:text="#{nav.shikoku.city.kochi}">高知</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 규슈 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 규슈 전체 -->
+				        <a th:href="@{/map(region='kyushu')}"
+				           class="region-btn"
+				           th:text="#{nav.kyushu}">九州</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.kyushu.title}">규슈 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.kyushu.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <a th:href="@{/map(region='fukuoka')}"
+				                   th:text="#{nav.kyushu.city.fukuoka}">福岡</a>
+				                <a th:href="@{/map(region='nagasaki')}"
+				                   th:text="#{nav.kyushu.city.nagasaki}">長崎</a>
+				                <a th:href="@{/map(region='kumamoto')}"
+				                   th:text="#{nav.kyushu.city.kumamoto}">熊本</a>
+				                <a th:href="@{/map(region='kagoshima')}"
+				                   th:text="#{nav.kyushu.city.kagoshima}">鹿児島</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- 오키나와 -->
+				    <div class="mega-menu-wrapper">
+				        <!-- 오키나와 전체 -->
+				        <a th:href="@{/map(region='okinawa')}"
+				           class="region-btn"
+				           th:text="#{nav.okinawa}">沖縄</a>
+				
+				        <div class="mega-menu">
+				            <div class="mega-title" th:text="#{nav.okinawa.title}">오키나와 권역</div>
+				            <div class="mega-subtitle" th:text="#{nav.okinawa.subtitle}">주요 도시</div>
+				
+				            <div class="mega-links">
+				                <a th:href="@{/map(region='naha')}"
+				                   th:text="#{nav.okinawa.city.naha}">那覇</a>
+				                <a th:href="@{/map(region='ishigaki')}"
+				                   th:text="#{nav.okinawa.city.ishigaki}">石垣島</a>
+				                <a th:href="@{/map(region='miyako')}"
+				                   th:text="#{nav.okinawa.city.miyako}">宮古島</a>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- Q&A -->
+				    <div class="mega-menu-wrapper">
+				        <a sec:authorize="isAuthenticated()"
+				           href="/qna"
+				           class="region-btn"
+				           th:text="#{nav.qna}">Q&A</a>
+				
+				        <a sec:authorize="isAnonymous()"
+				           href="#"
+				           class="region-btn"
+				           th:text="#{nav.qna}"
+				           onclick="return requireLogin();">Q&A</a>
+				    </div>
+				
+				</nav>
+		 <!-- 아래 소개 텍스트 박스 (검색 대신 설명만) -->
+        <div class="intro-box mt-3">
+            <h1 class="display-5 fw-bold mb-3" style="color: #1A237E;" th:utext="#{hero.title}">
+                日本の災害リスクと実取引価格を、一つの地図で。
+            </h1>
+            <p class="lead mb-0 text-muted" th:text="#{hero.subtitle}">
+                지역을 선택하면 해당 권역의 해저드 맵과 부동산 실거래 데이터를 지도로 확인할 수 있습니다。
+            </p>
+        </div>
+     </div>
+		    
+		</section>
+    </main>
+
+    <div th:replace="~{fragments/footer :: footer}"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

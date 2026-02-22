@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.safehome.mapper.QnaMapper">
+
+    <!-- 질문 작성 -->
+    <insert id="qnaWrite" parameterType="com.safehome.domain.qna.Question"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO question(user_id, title, content)
+        VALUES (#{userId}, #{title}, #{content})
+    </insert>
+
+    <!-- 목록 -->
+    <select id="loadQnaList" resultType="com.safehome.domain.qna.Question">
+        SELECT
+            q.id,
+            q.user_id AS userId,
+            q.title,
+            q.content,
+            q.created_at AS createdAt,
+            CASE WHEN a.id IS NOT NULL THEN TRUE ELSE FALSE END AS answered
+        FROM question q
+        LEFT JOIN answer a ON q.id = a.question_id
+        ORDER BY q.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countQna" resultType="int">
+        SELECT COUNT(*) FROM question
+    </select>
+
+    <!-- ✅ 상세: 질문 + 작성자 email + 답변(있으면) -->
+    <!-- Question.java에 answerId/answerContent/... 필드가 있어야 매핑됨 -->
+    <select id="qnaDetail" resultType="com.safehome.domain.qna.Question">
+        SELECT
+            q.id AS id,
+            q.user_id AS userId,
+            q.title AS title,
+            q.content AS content,
+            q.created_at AS createdAt,
+            u.email AS email,
+
+            a.id AS answerId,
+            a.admin_id AS answerAdminId,
+            a.content AS answerContent,
+            a.created_at AS answerCreatedAt
+        FROM question q
+        INNER JOIN user u ON q.user_id = u.id
+        LEFT JOIN answer a ON a.question_id = q.id
+        WHERE q.id = #{id}
+    </select>
+
+    <!-- 작성자 확인 -->
+    <select id="findQuestionOwnerId" resultType="long">
+        SELECT user_id FROM question WHERE id = #{id}
+    </select>
+
+    <!-- =========================
+         Question 수정/삭제
+         - ADMIN: 전체 가능
+         - USER: 본인 글만 가능
+         ========================= -->
+
+    <!-- ADMIN 수정 -->
+    <update id="updateQuestionAsAdmin">
+        UPDATE question
+        SET title = #{title},
+            content = #{content}
+        WHERE id = #{id}
+    </update>
+
+    <!-- ADMIN 삭제 -->
+    <delete id="deleteQuestionAsAdmin">
+        DELETE FROM question
+        WHERE id = #{id}
+    </delete>
+
+    <!-- OWNER 수정 (본인만) -->
+    <update id="updateQuestionAsOwner">
+        UPDATE question
+        SET title = #{title},
+            content = #{content}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- OWNER 삭제 (본인만) -->
+    <delete id="deleteQuestionAsOwner">
+        DELETE FROM question
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+    <!-- =========================
+         Answer (ADMIN 전용)
+         ========================= -->
+
+    <insert id="insertAnswer">
+        INSERT INTO answer (question_id, admin_id, content)
+        VALUES (#{questionId}, #{adminId}, #{content})
+    </insert>
+
+    <update id="updateAnswer">
+        UPDATE answer
+        SET content = #{content}
+        WHERE id = #{id}
+    </update>
+
+    <delete id="deleteAnswer">
+        DELETE FROM answer
+        WHERE id = #{id}
+    </delete>
+
+</mapper>

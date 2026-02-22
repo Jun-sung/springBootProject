@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{board.detail.title}">Q&A Detail</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --navy-main: #1A237E;
+            --navy-point: #E8EAF6;
+            --navy-accent: #3949AB;
+            --navy-dark: #0D1344;
+        }
+
+        body { background-color: #f8f9fa; min-height: 100vh; display: flex; flex-direction: column; }
+        .main-content { margin-top: 100px; flex: 1; padding-bottom: 50px; }
+        .detail-card { border: none; border-top: 4px solid var(--navy-main); border-radius: 8px; }
+        .answer-section { margin-top: 40px; padding: 30px; border-radius: 12px; }
+        .answer-item { background-color: white; border-left: 5px solid var(--navy-accent); padding: 25px; border-radius: 8px; }
+        .btn-navy { background-color: var(--navy-main); color: white; border: none; }
+        .btn-navy:hover { background-color: var(--navy-dark); color: white; }
+    </style>
+</head>
+<body>
+
+<th:block th:replace="~{fragments/header :: header}"></th:block>
+
+<main class="container main-content" sec:authorize="hasAnyRole('USER', 'ADMIN')">
+
+    <!-- [질문 영역] -->
+    <div class="card detail-card shadow-sm mb-5">
+        <div class="card-header bg-white p-4 border-bottom">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="fw-bold mb-0" id="displayTitle" th:text="${post.title}" style="color: var(--navy-dark);">제목</h2>
+
+				<!-- 관리자 OR 작성자(Thymeleaf 조건) -->
+				<div th:if="${#authorization.expression('hasRole(''ADMIN'')') or #authentication.name == post.email}">	
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="location.href='/qna'">
+                        <i class="bi bi-point"></i> <span th:text="#{board.btn.toall}">목록으로</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary me-1" onclick="openEditModal('post')">
+                        <i class="bi bi-pencil"></i> <span th:text="#{board.btn.edit}">수정</span>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" th:onclick="deleteContent('post', [[${post.id}]])">
+                        <i class="bi bi-trash"></i> <span th:text="#{board.btn.delete}">삭제</span>
+                    </button>
+                </div>
+            </div>
+            <div class="text-muted small">
+                <span class="me-3"><b th:text="#{board.writer}">작성자</b>: [[${post.email}]]</span>
+                <span><b th:text="#{board.regdate}">날짜</b>: [[${post.createdAt}]]</span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <p id="displayContent" th:text="${post.content}" style="white-space: pre-wrap;">내용</p>
+        </div>
+    </div>
+
+    <!-- [답변 영역] -->
+    <div class="answer-section shadow-sm">
+        <h4 class="fw-bold mb-4" style="color: var(--navy-main);" th:text="#{board.label.answer}">Answer</h4>
+
+        <div id="replyArea">
+            <!-- 1. 답변이 존재하는 경우 -->
+            <div th:if="${post.answerId != null}" class="answer-item shadow-sm position-relative">
+                <div class="d-flex justify-content-between mb-3">
+                    <span class="fw-bold text-navy"><i class="bi bi-shield-check me-2"></i>Admin</span>
+
+                    <!-- 답변 수정/삭제: 관리자 전용 -->
+                    <div sec:authorize="hasRole('ADMIN')">
+                        <button class="btn btn-sm btn-link text-primary p-0 me-2" onclick="openEditModal('reply')">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-sm btn-link text-danger p-0" th:onclick="deleteContent('reply', [[${post.answerId}]])">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="displayReplyContent" th:text="${post.answerContent}">답변 내용</div>
+            </div>
+
+            <!-- 2. 답변이 없고 관리자인 경우: 답변 작성 -->
+            <div th:if="${post.answerId == null}" sec:authorize="hasRole('ADMIN')" class="bg-white p-4 rounded-3 border">
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-muted small" th:text="#{board.label.write_answer}">답변 등록</label>
+                    <textarea class="form-control bg-light" id="replyText" rows="3" style="resize: none;"></textarea>
+                </div>
+                <div class="text-end">
+                    <button type="button" class="btn btn-navy px-4" onclick="submitReply()" th:text="#{board.btn.reply}">등록</button>
+                </div>
+            </div>
+
+            <!-- 3. 답변이 없고 유저인 경우 -->
+            <div th:if="${post.answerId == null}" sec:authorize="hasRole('USER')" class="text-center py-4 text-muted">
+                <p th:text="#{board.msg.no_answer}">답변 대기 중입니다.</p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- [공용 수정 모달] -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header text-white" style="background-color: var(--navy-main);">
+                <h5 class="modal-title fw-bold" id="modalTitleText" th:text="#{board.btn.edit}">수정하기</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editType">
+                <div class="mb-3" id="titleGroup">
+                    <label class="form-label fw-bold" th:text="#{board.label.subject}">제목</label>
+                    <input type="text" class="form-control" id="editTitle">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold" th:text="#{board.label.content}">내용</label>
+                    <textarea class="form-control" id="editContent" rows="5"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-navy" onclick="saveEdit()" th:text="#{board.btn.edit}">저장</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="~{fragments/footer :: footer}"></th:block>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+    const postId = [[${post.id}]];
+    const answerId = [[${post.answerId != null ? post.answerId : 'null'}]];
+    const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+
+    // ✅ i18n 메시지 (JS에서 사용)
+    const MSG_EDIT_OK = [[#{board.msg.edit_success}]];
+    const MSG_EDIT_FAIL = [[#{board.msg.edit_fail}]];
+    const MSG_DELETE_CONFIRM = [[#{board.msg.delete_confirm}]];
+    const MSG_DELETE_OK = [[#{board.msg.delete_success}]];
+    const MSG_INPUT_REQUIRED = [[#{board.msg.input_required}]];
+
+    function openEditModal(type) {
+        document.getElementById('editType').value = type;
+        const titleGroup = document.getElementById('titleGroup');
+
+        if (type === 'post') {
+            titleGroup.style.display = 'block';
+            document.getElementById('editTitle').value = document.getElementById('displayTitle').innerText;
+            document.getElementById('editContent').value = document.getElementById('displayContent').innerText;
+        } else {
+            titleGroup.style.display = 'none';
+            document.getElementById('editContent').value = document.getElementById('displayReplyContent').innerText;
+        }
+        editModal.show();
+    }
+
+    async function saveEdit() {
+        const type = document.getElementById('editType').value;
+        const targetId = (type === 'post') ? postId : answerId;
+        const url = (type === 'post') ? `/api/board/update/${targetId}` : `/api/reply/update/${targetId}`;
+
+        const payload = { content: document.getElementById('editContent').value };
+        if (type === 'post') payload.title = document.getElementById('editTitle').value;
+
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                alert(MSG_EDIT_OK);
+                location.reload();
+            } else {
+                alert(`${MSG_EDIT_FAIL}: ${response.status}`);
+            }
+        } catch (e) {
+            console.error(`Error: ${e}`);
+        }
+    }
+
+    async function deleteContent(type, id) {
+        if (!confirm(MSG_DELETE_CONFIRM)) return;
+
+        const url = (type === 'post') ? `/api/board/delete/${id}` : `/api/reply/delete/${id}`;
+
+        try {
+            const response = await fetch(url, { method: 'DELETE' });
+            if (response.ok) {
+                alert(MSG_DELETE_OK);
+                if (type === 'post') location.href = `/api/qna`;
+                else location.reload();
+            }
+        } catch (e) {
+            console.error(`Delete Error: ${e}`);
+        }
+    }
+
+    async function submitReply() {
+        const content = document.getElementById('replyText').value;
+        if (!content.trim()) {
+            alert(MSG_INPUT_REQUIRED);
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/reply/write`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ postId: postId, content: content })
+            });
+            if (response.ok) location.reload();
+        } catch (e) {
+            console.error(`Reply Error: ${e}`);
+        }
+    }
+</script>
+</body>
+</html>

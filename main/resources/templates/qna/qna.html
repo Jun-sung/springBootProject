@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" 
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="#{board.title}">Q&A Board</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --forest-main: #1A237E;
+            --forest-point: #E8F5E9;
+            --forest-accent: #0D47A1;
+            --navy-dark: #1A237E;
+        }
+
+        body {
+            background-color: #fcfcfc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .main-content {
+            margin-top: 100px; /* absolute 헤더 공간 확보 */
+            flex: 1;
+            padding-bottom: 50px;
+        }
+
+        /* 게시판 전용 타이틀 스타일 */
+        .board-title-section {
+            border-bottom: 2px solid var(--forest-main);
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+
+        /* 테이블 커스텀 */
+        .table thead {
+            background-color: var(--forest-point);
+            color: var(--forest-accent);
+        }
+
+        .table-hover tbody tr:hover {
+            background-color: rgba(232, 245, 233, 0.5);
+            cursor: pointer;
+        }
+
+        /* 버튼 커스텀 (에메랄드) */
+        .btn-emerald {
+            background-color: var(--forest-main);
+            color: white;
+            border: none;
+            transition: 0.2s;
+        }
+
+        .btn-emerald:hover {
+            background-color: var(--forest-accent);
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 페이지네이션 커스텀 */
+        .page-link {
+            color: var(--forest-main);
+            border: none;
+        }
+
+        .page-item.active .page-link {
+            background-color: var(--forest-main);
+            border-color: var(--forest-main);
+        }
+
+        .badge-status {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 헤더 삽입 -->
+    <th:block th:replace="~{fragments/header :: header}"></th:block>
+
+    <main class="container main-content">
+        <div class="board-title-section d-flex justify-content-between align-items-end">
+            <div>
+                <h2 class="fw-bold mb-1" th:text="#{board.title}" style="color: var(--navy-dark);">Q&A 게시판</h2>
+                <p class="text-muted mb-0" th:text="#{board.subtitle}">위험 지도 서비스 관련 문의사항을 남겨주세요.</p>
+            </div>
+           <a href="javascript:void(0)" onclick="checkLogin()" class="btn btn-emerald px-4 fw-bold shadow-sm">
+			    <span th:text="#{board.btn.write}">질문하기</span>
+			</a>
+        </div>
+
+        <!-- 검색 영역 -->
+        <div class="d-flex justify-content-end mb-4">
+            <div class="input-group" style="width: 350px;">
+                <input type="text" class="form-control border-secondary-subtle" 
+                       th:placeholder="#{board.search.placeholder}">
+                <button class="btn btn-outline-secondary" type="button" th:text="#{board.btn.search}">검색</button>
+            </div>
+        </div>
+
+        <!-- 게시판 리스트 카드 -->
+		<span id="msgClosed" th:text="#{board.status.closed}" style="display:none"></span>
+		<span id="msgOpen" th:text="#{board.status.open}" style="display:none"></span>
+		<span id="msgNoData" th:text="#{board.empty}" style="display:none"></span>
+        
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 text-center align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 8%;" th:text="#{board.no}">번호</th>
+                            <th scope="col" style="width: 20%;" th:text="#{board.subject}">제목</th>
+                            <th scope="col" style="width: 45%;" th:text="#{board.label.content}">내용</th>
+                            <th scope="col" style="width: 15%;" th:text="#{board.regdate}">날짜</th>
+                            <th scope="col" style="width: 12%;" th:text="#{board.status}">상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="qnaBody">
+						
+					</tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 페이지네이션 -->
+		<nav class="mt-4">
+		    <ul class="pagination justify-content-center" id="pagination"></ul>
+		</nav>
+    </main>
+
+<!-- 문의 등록 모달 -->
+<div class="modal fade" id="writeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header text-white" style="background-color: var(--navy-dark);">
+                <h5 class="modal-title fw-bold" th:text="#{board.modal.title}">문의 등록</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="boardWriteForm">
+						
+	                <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted" th:text="#{board.label.writer}">작성자</label>
+                        <!-- 인증된 사용자의 이메일을 자동으로 채움 -->
+                        <input type="email" class="form-control bg-light" name="writer" id="writeEmail"
+                               th:value="${#authentication.name}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted" th:text="#{board.label.subject}">제목</label>
+                        <input type="text" class="form-control" name="title" id="writeTitle"
+                               th:placeholder="#{board.placeholder.subject}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-bold text-muted" th:text="#{board.label.content}">내용</label>
+                        <textarea class="form-control" name="content" id="writeContent" rows="6" 
+                                  th:placeholder="#{board.placeholder.content}" required></textarea>
+                    </div>
+                    <div class="text-end mt-4">
+                        <button type="button" onclick="submitBoard()" class="btn btn-emerald px-4" th:text="#{board.btn.write}">등록하기</button>
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- 스크립트 영역 -->
+<script th:inline="javascript">
+    // 로그인 여부 체크 및 모달 제어
+    function checkLogin() {
+        const isAuthenticated = /*[[${#authorization.expression('isAuthenticated()')}]]*/;
+        if (!isAuthenticated) {
+            alert(/*[[#{board.msg.login_required}]]*/);
+            return;
+        }
+        const writeModal = new bootstrap.Modal(document.getElementById('writeModal'));
+        writeModal.show();
+    }
+
+    async function submitBoard() {
+        const title = document.getElementById('writeTitle').value;
+        const content = document.getElementById('writeContent').value;
+        const email = document.getElementById('writeEmail').value;
+
+        if (!title || !content) {
+            alert("Please fill in all fields.");
+            return;
+        }
+
+        const data = { title, content, author: email };
+
+        try {
+            const response = await fetch('/api/board/write', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                alert(/*[[#{board.msg.success}]]*/);
+                window.location.reload();
+            } else {
+                alert("Error: " + response.statusText);
+            }
+        } catch (e) {
+            console.error("Submit Error:", e);
+        }
+    }
+
+    // =========================
+    // QnA 출력 + 페이지네이션 (✅ 1-based로 통일)
+    // =========================
+    let currentPage = 1;
+    const pageSize = 10;
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadQnaList(1);
+    });
+
+    async function loadQnaList(page) {
+        try {
+            const response = await fetch(`/api/qna?page=${page}&size=${pageSize}`);
+            const data = await response.json();
+
+            // ✅ 백엔드 응답 키: currentPage / totalPages / list
+            renderTable(data.list);
+            renderPagination(data.currentPage, data.totalPages);
+
+            currentPage = data.currentPage;
+        } catch (e) {
+            console.error("QnA load error:", e);
+        }
+    }
+
+    function renderTable(list) {
+        const tbody = document.getElementById("qnaBody");
+        tbody.innerHTML = "";
+
+        const msgClosed = document.getElementById("msgClosed").innerText;
+        const msgOpen = document.getElementById("msgOpen").innerText;
+        const msgNoData = document.getElementById("msgNoData").innerText;
+
+        if (!list || list.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="py-5 text-muted text-center">${msgNoData}</td>
+                </tr>
+            `;
+            return;
+        }
+
+        list.forEach(post => {
+            const statusBadge = post.answered
+                ? `<span class="badge-status bg-success text-white">${msgClosed}</span>`
+                : `<span class="badge-status bg-secondary text-white">${msgOpen}</span>`;
+
+            const row = `
+                <tr onclick="location.href='/qna/detail/${post.id}'">
+                    <td>${post.id}</td>
+                    <td class="text-start ps-4 fw-medium text-center">${post.title}</td>
+                    <td>${post.content}</td>
+                    <td>${formatDate(post.createdAt)}</td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+            tbody.insertAdjacentHTML("beforeend", row);
+        });
+    }
+
+    function renderPagination(page, totalPages) {
+        const pagination = document.getElementById("pagination");
+        pagination.innerHTML = "";
+
+        if (!totalPages || totalPages <= 1) return;
+
+        // ✅ 이전 (1페이지면 비활성)
+        pagination.innerHTML += `
+            <li class="page-item ${page === 1 ? "disabled" : ""}">
+                <a class="page-link" href="javascript:void(0)" onclick="loadQnaList(${page - 1})">&laquo;</a>
+            </li>
+        `;
+
+        // ✅ 1 ~ totalPages
+        for (let i = 1; i <= totalPages; i++) {
+            pagination.innerHTML += `
+                <li class="page-item ${page === i ? "active" : ""}">
+                    <a class="page-link" href="javascript:void(0)" onclick="loadQnaList(${i})">${i}</a>
+                </li>
+            `;
+        }
+
+        // ✅ 다음 (마지막 페이지면 비활성)
+        pagination.innerHTML += `
+            <li class="page-item ${page === totalPages ? "disabled" : ""}">
+                <a class="page-link" href="javascript:void(0)" onclick="loadQnaList(${page + 1})">&raquo;</a>
+            </li>
+        `;
+    }
+
+    function formatDate(dateString) {
+        // createdAt이 'YYYY-MM-DD'면 그대로 써도 됨
+        if (!dateString) return "";
+        return String(dateString).substring(0, 10);
+    }
+</script>
+
+
+    <!-- 푸터 삽입 -->
+    <th:block th:replace="~{fragments/footer :: footer}"></th:block>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

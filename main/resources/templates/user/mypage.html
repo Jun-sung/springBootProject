@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title th:text="#{mypage.title}">My Page</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --navy: #1A237E;
+      --navy-dark: #0D1B5E;
+      --navy-soft: rgba(26,35,126,.08);
+      --border: rgba(0,0,0,.08);
+    }
+    body{ background:#fcfcfc; }
+    .navy-text{ color: var(--navy); }
+    .btn-navy{
+      background: var(--navy);
+      border-color: var(--navy);
+      color:#fff;
+    }
+    .btn-navy:hover{ background: var(--navy-dark); border-color: var(--navy-dark); color:#fff; }
+    .card-soft{
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 10px 25px rgba(0,0,0,.06);
+    }
+    .side-link{
+      border-radius: 14px;
+      padding: 12px 14px;
+      color:#111827;
+      text-decoration:none;
+      border:1px solid transparent;
+      display:block;
+    }
+    .side-link:hover{ background: var(--navy-soft); border-color: rgba(26,35,126,.18); }
+    .side-link.active{
+      background: var(--navy-soft);
+      border-color: rgba(26,35,126,.35);
+      color: var(--navy);
+      font-weight:700;
+    }
+    .table thead th{ background: rgba(26,35,126,.06); }
+    .badge-open{ background: rgba(13,71,161,.12); color:#0D47A1; border: 1px solid rgba(13,71,161,.25); }
+    .badge-done{ background: rgba(46,125,50,.12); color:#2E7D32; border: 1px solid rgba(46,125,50,.25); }
+  </style>
+</head>
+
+<body class="d-flex flex-column min-vh-100">
+
+  <!-- header fragment -->
+  <div th:replace="~{fragments/header :: header}"></div>
+
+  <main class="flex-grow-1">
+    <div class="container py-5">
+      <div class="row g-4">
+
+        <!-- LEFT: Tabs -->
+        <aside class="col-12 col-lg-3" style="margin-top:60px;">
+          <div class="card card-soft p-3">
+            <div class="mb-3">
+              <div class="fw-bold navy-text fs-5" th:text="#{mypage.sidebar.title}">My Page</div>
+              <div class="text-muted small" th:text="${userEmail}">user@email.com</div>
+            </div>
+
+            <!-- 현재 선택 탭: tab 파라미터로 제어 (profile/favorites/questions) -->
+            <a class="side-link"
+               th:classappend="${tab}=='profile' ? ' active' : ''"
+               th:href="@{/mypage(tab='profile')}"
+               th:text="#{mypage.tab.profile}">개인정보 수정</a>
+
+            <a class="side-link"
+               th:classappend="${tab}=='questions' ? ' active' : ''"
+               th:href="@{/mypage(tab='questions')}"
+               th:text="#{mypage.tab.questions}">내 질문글</a>
+          </div>
+        </aside>
+
+        <!-- RIGHT: Content -->
+        <section class="col-12 col-lg-9" style="margin-top:60px;">
+          <div class="card card-soft p-4">
+
+            <!-- ========== 1) Profile / Password Only ========== -->
+            <div th:if="${tab}=='profile'">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="m-0 fw-bold navy-text" th:text="#{mypage.profile.title}">개인정보 수정</h2>
+              </div>
+
+              <div class="row g-3">
+                <div class="col-12 col-md-8">
+                  <label class="form-label fw-semibold" th:text="#{mypage.profile.email}">Email</label>
+                  <!-- email은 수정 불가 -->
+                  <input type="email" class="form-control" th:value="${userEmail}" disabled>
+                  <div class="form-text" th:text="#{mypage.profile.emailHint}">
+                    이메일은 변경할 수 없습니다.
+                  </div>
+                </div>
+              </div>
+
+              <hr class="my-4">
+
+              <!-- 비밀번호 변경 폼 -->
+              <form th:action="@{/mypage/password}" method="post" class="row g-3">
+                <!-- CSRF 사용중이면 필요 -->
+				<input type="hidden"
+				       th:if="${_csrf != null}"
+				       th:name="${_csrf.parameterName}"
+				       th:value="${_csrf.token}" />
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold" th:text="#{mypage.profile.currentPw}">현재 비밀번호</label>
+                  <input type="password" name="currentPassword" class="form-control" required>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold" th:text="#{mypage.profile.newPw}">새 비밀번호</label>
+                  <input type="password" name="newPassword" class="form-control" minlength="6" required>
+                </div>
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label fw-semibold" th:text="#{mypage.profile.confirmPw}">새 비밀번호 확인</label>
+                  <input type="password" name="confirmPassword" class="form-control" minlength="6" required>
+                </div>
+
+                <div class="col-12 d-flex gap-2">
+                  <button type="submit" class="btn btn-navy px-4 fw-bold" th:text="#{mypage.profile.save}">
+                    저장
+                  </button>
+                </div>
+
+                <!-- 메시지 출력(선택) -->
+                <div class="col-12" th:if="${msg != null}">
+                  <div class="alert alert-info mb-0" th:text="${msg}"></div>
+                </div>
+                <div class="col-12" th:if="${err != null}">
+                  <div class="alert alert-danger mb-0" th:text="${err}"></div>
+                </div>
+              </form>
+            </div>
+
+            <!-- ========== 2) Favorites (placeholder) ========== -->
+            <div th:if="${tab}=='favorites'">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="m-0 fw-bold navy-text" th:text="#{mypage.favorites.title}">찜한 리스트</h2>
+              </div>
+
+              <!-- 여기서 favorites 리스트 렌더링하면 됨 -->
+              <div class="text-muted" th:text="#{mypage.favorites.placeholder}">
+                찜한 목록을 여기에 표시합니다.
+              </div>
+            </div>
+
+            <!-- ========== 3) My Questions Table ========== -->
+            <div th:if="${tab}=='questions'">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="m-0 fw-bold navy-text" th:text="#{mypage.questions.title}">내 질문글</h2>
+                <a class="btn btn-outline-secondary"
+                   href="/qna"
+                   th:text="#{mypage.questions.goQna}">Q&A로 이동</a>
+              </div>
+
+              <div class="table-responsive">
+                <table class="table align-middle">
+                  <thead>
+                    <tr>
+                      <th style="width:80px" th:text="#{mypage.questions.no}">번호</th>
+                      <th th:text="#{mypage.questions.subject}">제목</th>
+                      <th th:text="#{mypage.questions.content}">내용</th>
+                      <th style="width:160px" th:text="#{mypage.questions.createdAt}">작성일</th>
+                      <th style="width:120px" th:text="#{mypage.questions.status}">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr th:if="${#lists.isEmpty(myQuestions)}">
+                      <td colspan="5" class="text-center text-muted py-4"
+                          th:text="#{mypage.questions.empty}">
+                        작성한 질문이 없습니다.
+                      </td>
+                    </tr>
+
+                    <tr th:each="q, stat : ${myQuestions}">
+                      <!-- 번호: DB id 또는 stat.count 사용 (원하면 바꿔) -->
+                      <td class="fw-semibold" th:text="${q.id}">1</td>
+
+                      <td>
+                        <a th:href="@{/qna/detail/{id}(id=${q.id})}"
+                           class="text-decoration-none fw-bold"
+                           style="color: var(--navy);"
+                           th:text="${q.title}">
+                          제목
+                        </a>
+                      </td>
+
+                      <!-- 내용은 길 수 있으니 잘라서 -->
+                      <td class="text-muted"
+                          th:text="${#strings.abbreviate(q.content, 60)}">
+                        내용...
+                      </td>
+
+                      <!-- LocalDateTime이면 #temporals 사용 -->
+                      <td th:text="${q.createdAt}">
+                        2026-02-13 10:30
+                      </td>
+
+                      <td>
+                        <!-- answered 여부에 따라 badge -->
+                        <span th:if="${q.answered}"
+                              class="badge badge-done rounded-pill px-3 py-2"
+                              th:text="#{mypage.questions.status.done}">
+                          답변완료
+                        </span>
+                        <span th:unless="${q.answered}"
+                              class="badge badge-open rounded-pill px-3 py-2"
+                              th:text="#{mypage.questions.status.open}">
+                          대기중
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- footer fragment -->
+  <div th:replace="~{fragments/footer :: footer}"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

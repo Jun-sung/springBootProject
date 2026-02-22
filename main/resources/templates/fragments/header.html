@@ -1,0 +1,250 @@
+<header th:fragment="header" 
+        xmlns:th="http://www.thymeleaf.org" 
+        xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+    <style>
+        :root {
+            --navy-main: #1A237E;
+            --navy-point: #0D47A1;
+        }
+
+        .header-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 2000;
+        }
+
+        /* 배경을 조금 더 어둡게(0.4) 조정하고 글자 그림자 추가 */
+        .top-bar {
+            background: rgba(0, 0, 0, 0.4) !important; /* 어두운 반투명으로 변경 */
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 2001;
+        }
+
+        /* 모든 텍스트에 가독성을 위한 그림자 부여 */
+        .top-bar .btn, 
+        .top-bar .dropdown-toggle, 
+        .top-bar span {
+            color: #ffffff !important;
+            font-size: 0.85rem;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* 글자 테두리 효과 */
+        }
+
+        /* 드롭다운 메뉴 내부는 글자가 잘 보여야 하므로 배경 흰색, 글자 검은색 유지 */
+        .dropdown-menu {
+            z-index: 3000 !important;
+            background: #ffffff !important;
+            border: none;
+        }
+        .dropdown-item {
+            color: #333333 !important;
+            text-shadow: none !important;
+        }
+
+        .btn-outline-custom {
+            color: white !important;
+            border-color: rgba(255, 255, 255, 0.5) !important;
+            background-color: rgba(0, 0, 0, 0.3);
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+            transition: all 0.25s ease;
+        }
+
+        .btn-outline-custom:hover {
+            background-color: var(--navy-main) !important;
+            border-color: var(--navy-main) !important;
+            transform: translateY(-2px);
+        }
+    </style>
+
+<div class="header-wrapper">
+    <div class="container-fluid top-bar py-2">
+        <div class="container d-flex justify-content-between align-items-center">
+        
+            <a th:href="@{/}" class="header-logo d-flex align-items-center text-decoration-none">
+                    <!-- 로고 이미지 태그 (이미지 경로를 프로젝트에 맞게 수정하세요) -->
+                  <span class="ms-2 fw-bold fs-5 text-white" style="text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">SafeHome</span>
+            </a>
+            
+ 				<!-- 오른쪽 상단 메뉴 영역 -->
+                <div class="d-flex align-items-center gap-3">
+                    <!-- 익명 사용자(로그인 전) -->
+                    <div sec:authorize="isAnonymous()">
+                        <button type="button" class="btn btn-sm fw-bold text-white" 
+                                data-bs-toggle="modal" data-bs-target="#loginModal" 
+                                th:text="#{nav.login}">로그인
+                        </button>
+                        <button type="button" class="btn btn-sm fw-bold" 
+                                data-bs-toggle="modal" data-bs-target="#signupModal" 
+                                th:text="#{nav.signup}">Sign Up
+                        </button>
+                    </div>
+                    
+                    <!-- 인증된 사용자(로그인 후) -->
+                    <div sec:authorize="isAuthenticated()">
+                        <span class="text-white small me-2">
+                            <span sec:authentication="name">User</span>[[#{nav.welcome.suffix}]]
+                        </span>
+                    
+                        <div sec:authorize="hasRole('ADMIN')" class="d-inline">
+                            <a th:href="@{/admin/dashboard}" class="btn btn-sm text-warning fw-bold" th:text="#{nav.admin.page}">관리자페이지</a>
+                        </div>
+                    
+                        <div sec:authorize="!hasRole('ADMIN')" class="d-inline">
+                            <a th:href="@{/mypage}" class="btn btn-sm text-white fw-bold" th:text="#{nav.mypage}">마이페이지</a>
+                        </div>
+                    
+                        <form th:action="@{/logout}" method="post" class="d-inline">
+                            <button type="submit" class="btn btn-sm text-danger fw-bold" th:text="#{nav.logout}">로그아웃</button>
+                        </form>
+                    </div>
+                        
+                    <div class="dropdown">
+                        <button class="btn btn-sm dropdown-toggle fw-bold text-white" type="button" data-bs-toggle="dropdown">Language</button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow">
+							<li>
+							  <a class="dropdown-item py-2"
+							     th:href="${currentUri + (#strings.contains(currentUri,'?') ? '&' : '?') + 'lang=ja'}">🇯🇵 日本語 (JP)</a>
+							</li>
+							<li>
+							  <a class="dropdown-item py-2"
+							     th:href="${currentUri + (#strings.contains(currentUri,'?') ? '&' : '?') + 'lang=ko'}">🇰🇷 한국어 (KO)</a>
+							</li>                        
+						</ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+<!-- 로그인 모달창 -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" style="width: 400px;">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold" th:text="#{login.modal.title}"></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label small fw-bold text-muted" th:text="#{login.label.id}"></label>
+                            <input type="text" class="form-control py-2" name="username" 
+                                   th:placeholder="#{login.placeholder.id}" required>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small fw-bold text-muted" th:text="#{login.label.pw}"></label>
+                            <input type="password" class="form-control py-2" name="password" 
+                                   th:placeholder="#{login.placeholder.pw}" required>
+                        </div>
+                        
+                        <div id="loginError" class="alert alert-danger py-2 small d-none" th:text="#{login.error.fail}">
+                            
+                        </div>
+
+                        <button type="button" onclick="ajaxLogin()" class="btn btn-login-submit py-2 shadow-sm" th:text="#{nav.login}"></button>
+                    </form>
+                    
+                    <div class="text-center mt-3">
+                        <span class="text-muted small" th:text="#{login.ask.signup}"></span>
+                        <button data-bs-toggle="modal" data-bs-target="#signupModal"  class="small text-decoration-none ms-1" 
+                           style="color: var(--navy-main);" th:text="#{nav.signup}"></button>
+                    </div>
+                       
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- 회원가입 모달 --> 
+	<div class="modal fade" id="signupModal" tabindex="-1" aria-hidden="true">
+	    <div class="modal-dialog modal-dialog-centered" style="width: 400px;">
+	        <div class="modal-content shadow">
+	            <div class="modal-header">
+	                <h5 class="modal-title fw-bold" th:text="#{signup.modal.title}">Sign Up</h5>
+	                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+	            </div>
+	            <div class="modal-body p-4 text-dark">
+	                <form id="signupForm">
+	                    <div class="mb-3 text-start">
+	                        <label class="form-label small fw-bold text-muted" th:text="#{login.label.id}">Email</label>
+	                        <input type="email" class="form-control py-2" name="email" id = "email"
+	                               th:placeholder="#{signup.placeholder.email}" required>
+	                    </div>
+	                    <div class="mb-4 text-start">
+	                        <label class="form-label small fw-bold text-muted" th:text="#{login.label.pw}">Password</label>
+	                        <input type="password" class="form-control py-2" name="password" id="password" 
+	                               th:placeholder="#{login.placeholder.pw}" required>
+	                    </div>
+	                    
+	                    <div id="signupMsg" class="alert py-2 small d-none"></div>
+	
+	                    <button type="button" onclick="ajaxSignup()" class="btn btn-login-submit py-2 shadow-sm" 
+	                            th:text="#{nav.signup}">Sign Up</button>
+	                </form>
+	            </div>
+	        </div>
+	    </div>
+	</div>
+    <script th:inline="javascript">
+	    async function ajaxSignup() {
+		    console.log("ajaxSignup called");
+	        const email = document.getElementById('email').value;
+	        const password = document.getElementById('password').value;
+	        const msgBox = document.getElementById('signupMsg');
+	        const data = {
+	                email: email,
+	                password: password
+	            };
+	        // const data = Object.fromEntries(formData.entries());
+	
+	        try {
+	        	console.log("sending request", data);
+	            const response = await fetch('/user/signUp', {
+	                method: 'POST',
+	                headers: { 'Content-Type': 'application/json' },
+	                body: JSON.stringify(data)
+	            });
+	            const message = await response.text();  // ★ 한 번만 읽는다
+	            msgBox.classList.remove('d-none', 'alert-success', 'alert-danger');
+
+	            if (response.ok) {
+	                msgBox.classList.add('alert-success');
+	            } else {
+	                msgBox.classList.add('alert-danger');
+	                }
+	            msgBox.innerText = message;
+            	setTimeout(() => window.location.reload(), 1500); // 1.5초 후 갱신
+	            msgBox.classList.remove('d-none');
+	            
+	        } catch (e) {
+	            console.error("Signup Error:", e);
+	        }
+	    }
+    
+        async function ajaxLogin() {
+            const form = document.getElementById('loginForm');
+            const errorBox = document.getElementById('loginError');
+            const formData = new FormData(form);
+
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    credentials: 'same-origin',  // 세션 쿠키 유지 핵심
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams(formData)
+                });
+
+                if (response.ok) {
+                    window.location.reload(); // 성공 시 현재 페이지 새로고침 (헤더 상태 갱신)
+                } else {
+                    errorBox.classList.remove('d-none'); // 실패 시 에러 노출
+                }
+            } catch (e) {
+                console.error("Login Error:", e);
+                errorBox.classList.remove('d-none');
+            }
+        }
+    </script>
+</header>

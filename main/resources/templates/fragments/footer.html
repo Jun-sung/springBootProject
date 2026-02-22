@@ -1,0 +1,141 @@
+<footer th:fragment="footer" xmlns:th="http://www.thymeleaf.org">
+    <div class="container py-4 border-top mt-auto">
+        <p class="text-center text-muted small">&copy; 2026 SafeHome - Hazard Map Real Estate Service</p>
+    </div>
+
+    <button class="chat-toggle shadow-lg" onclick="toggleChat()" 
+            style="position: fixed; bottom: 30px; right: 30px; background: #1A237E; color: white; border: none; width: 60px; height: 60px; border-radius: 50%; z-index: 3000; font-size: 24px; transition: 0.3s; cursor: pointer;">
+        💬
+    </button>
+    
+    <div id="chatbot-sidebar" style="position: fixed; right: -380px; top: 0; width: 380px; height: 100%; background: white; box-shadow: -10px 0 30px rgba(0,0,0,0.15); transition: 0.4s cubic-bezier(0.075, 0.82, 0.165, 1); z-index: 3100; display: flex; flex-direction: column;">
+        
+        <div style="background: #1A237E; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center;">
+            <span class="fw-bold" th:text="#{chat.header}" style="font-size: 1.1rem;">AI 채팅 상담</span>
+            
+            <button type="button" onclick="toggleChat()" 
+                    style="background: none; border: none; color: white; padding: 10px; margin: -10px; cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 3101;">
+                <span style="font-size: 1.8rem; line-height: 1;">✕</span>
+            </button>
+        </div>
+
+        <div id="chatBody" style="flex: 1; padding: 20px; overflow-y: auto; background-color: #f8f9fa;">
+            <div class="p-2 mb-2 bg-white rounded shadow-sm" style="max-width: 80%;">
+                <small class="text-muted d-block mb-1">AI Advisor</small>
+                <span th:text="#{chat.welcome}"></span>
+            </div>
+        </div>
+
+        <div style="padding: 15px; border-top: 1px solid #dee2e6; background: white;">
+            <div class="input-group">
+                <input type="text" id="chatInput" class="form-control" th:placeholder="#{chat.input.placeholder}" onkeypress="if(event.keyCode==13) sendMessage()">
+                <button class="btn btn-primary" style="background:#1A237E; border: none;" type="button" onclick="sendMessage()">
+                <span th:text="#{chat.send}"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+    function requireLogin() {
+      alert([[#{msg.login_required}]]);
+      return false; // ✅ 이동 막기
+    }
+    
+    function toggleChat() {
+        const sidebar = document.getElementById('chatbot-sidebar');
+        if (sidebar.style.right === '0px') {
+            sidebar.style.right = '-380px';
+        } else {
+            sidebar.style.right = '0px';
+        }
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const chatBody = document.getElementById('chatBody');
+        const message = input.value.trim();
+
+        if (message === "") return;
+
+        // 1. 사용자 메시지 출력
+        const myMsg = document.createElement('div');
+        myMsg.className = 'p-2 mb-2 ms-auto text-white rounded shadow-sm';
+        myMsg.style.cssText = 'max-width: 80%; background-color: #0D47A1; word-break: break-all;';
+        myMsg.innerHTML = `<span>${message}</span>`;
+        chatBody.appendChild(myMsg);
+
+        input.value = "";
+        chatBody.scrollTop = chatBody.scrollHeight;
+
+        // 2. 서버 호출
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain' // 서버 컨드롤러가 String으로 받는 경우 유지
+                },
+                body: message
+            });
+
+            let text = await response.text();
+
+            // [중요] Gemini API가 마크다운 코드 블록(```json)을 포함해 응답하는 경우 대비
+            if (text.includes("```json")) {
+                text = text.split("```json")[1].split("```")[0].trim();
+            } else if (text.includes("```")) {
+                text = text.split("```")[1].split("```")[0].trim();
+            }
+
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("Original Text:", text); // 에러 로그 확인용
+                throw new Error("JSON 파싱 실패");
+            }
+
+            // 3. AI 답변 출력
+            const aiMsg = document.createElement('div');
+            aiMsg.className = 'p-2 mb-2 bg-white rounded shadow-sm';
+            aiMsg.style.cssText = 'max-width: 80%; word-break: break-word;';
+
+            let html = `<small class="text-muted d-block mb-1">AI Advisor</small>`;
+
+            // 서버 응답 객체 구조에 따른 분기 처리
+            if (data && data.recommendedRegions) {
+                html += `<div>${data.reason}</div>`;
+                html += `<div class="mt-2">`;
+                data.recommendedRegions.forEach(region => {
+                    html += `
+                        <button class="btn btn-sm btn-outline-primary me-1 mb-1"
+                            onclick="selectRegion('${region}')">
+                            ${region}
+                        </button>
+                    `;
+                });
+                html += `</div>`;
+            } else if (data && data.content) { 
+                // 혹시 추천 지역이 없는 일반 답변인 경우 처리
+                html += `<div>${data.content}</div>`;
+            } else {
+                html += `<div>죄송합니다. 적절한 답변을 생성하지 못했습니다.</div>`;
+            }
+
+            aiMsg.innerHTML = html;
+            chatBody.appendChild(aiMsg);
+            chatBody.scrollTop = chatBody.scrollHeight;
+
+        } catch (error) {
+            console.error(error);
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'p-2 mb-2 bg-danger text-white rounded shadow-sm';
+            errorMsg.innerText = error.message === "JSON parsing fail" ? "response fail" : "AI Server Connect fail";
+            chatBody.appendChild(errorMsg);
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+    }
+
+
+</script>
+</footer>
